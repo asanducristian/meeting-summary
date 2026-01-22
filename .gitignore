@@ -1,0 +1,10 @@
+.env
+.DS_Store
+node_modules/
+recordings/
+outputs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.log
