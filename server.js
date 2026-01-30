@@ -283,7 +283,7 @@ async function processAudioFile(filePath, chatId) {
     console.log('meetingtitle: ', meetingTitle);
     const meetingMinutes = await createMeetingMinutes(transcript);
 
-    // console.log("meetingMinutes: ", meetingMinutes)
+    console.log("meetingMinutes: ", meetingMinutes)
 
     const safeSlug = meetingTitle?.slug || `meeting-${Date.now()}`;
     transcriptPath = path.join(outputsDir, `${safeSlug}-transcript.txt`);
