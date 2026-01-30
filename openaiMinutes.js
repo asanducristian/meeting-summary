@@ -64,7 +64,7 @@ async function transcribeAudio(filePath, options = {}) {
   return data.text ?? "";
 }
 
-export async function translateMinutesToEnglish(romanianMinutes, options = {}) {
+async function translateMinutesToEnglish(romanianMinutes, options = {}) {
   const { model = "gpt-4o-mini" } = options;
   const apiKey = getApiKey();
 
@@ -229,4 +229,5 @@ module.exports = {
   createMeetingTitle,
   createMeetingMinutes,
   transcribeAndSummarize,
+  translateMinutesToEnglish
 };
