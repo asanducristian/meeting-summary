@@ -281,11 +281,11 @@ async function processAudioFile(filePath, chatId) {
     }
     // console.log("transcriptText: ", transcriptText)
     const meetingTitle = await createMeetingTitle(transcript);
-    console.log('meetingtitle: ', meetingTitle);
+    // console.log('meetingtitle: ', meetingTitle);
     const romaianMeetingMinutes = await createMeetingMinutes(transcript);
     const meetingMinutes= translateMinutesToEnglish(romaianMeetingMinutes)
 
-    console.log("meetingMinutes: ", meetingMinutes)
+    // console.log("meetingMinutes: ", meetingMinutes)
 
     const safeSlug = meetingTitle?.slug || `meeting-${Date.now()}`;
     transcriptPath = path.join(outputsDir, `${safeSlug}-transcript.txt`);
