@@ -135,7 +135,8 @@ async function createMeetingTitle(transcript, options = {}) {
                 "- Use '-' not en-dash/em-dash.\n" +
                 "- Use only plain quotes: \" \".\n\n" +
                 "Generează un titlu scurt și descriptiv pentru ședință în limba română (3–10 cuvinte). " +
-                "Returnează DOAR titlul, fără ghilimele, fără text suplimentar.",
+                "Returnează DOAR titlul, fără ghilimele, fără text suplimentar."+
+                "and translate it to english"
             },
           ],
         },

@@ -283,7 +283,7 @@ async function processAudioFile(filePath, chatId) {
     const meetingTitle = await createMeetingTitle(transcript);
     // console.log('meetingtitle: ', meetingTitle);
     const romaianMeetingMinutes = await createMeetingMinutes(transcript);
-    const meetingMinutes= translateMinutesToEnglish(romaianMeetingMinutes)
+    const meetingMinutes= await translateMinutesToEnglish(romaianMeetingMinutes)
 
     // console.log("meetingMinutes: ", meetingMinutes)
 
