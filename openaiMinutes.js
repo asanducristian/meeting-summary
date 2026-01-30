@@ -63,6 +63,53 @@ async function transcribeAudio(filePath, options = {}) {
   const data = await res.json();
   return data.text ?? "";
 }
+
+export async function translateMinutesToEnglish(romanianMinutes, options = {}) {
+  const { model = "gpt-4o-mini" } = options;
+  const apiKey = getApiKey();
+
+  const ro = String(romanianMinutes || "").trim();
+  if (!ro) return "";
+
+  const res = await fetch(`${OPENAI_BASE_URL}/responses`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model,
+      input: [
+        {
+          role: "system",
+          content: [
+            {
+              type: "input_text",
+              text:
+                "You are a translation engine.\n" +
+                "Translate the text from Romanian to English.\n" +
+                "Rules:\n" +
+                "- Preserve the original Markdown structure exactly (headings, lists, numbering).\n" +
+                "- Do not add or remove sections.\n" +
+                "- Do not summarize or reinterpret; translate faithfully.\n" +
+                "- Output plain text only.",
+            },
+          ],
+        },
+        {
+          role: "user",
+          content: [{ type: "input_text", text: ro }],
+        },
+      ],
+    }),
+  });
+
+  if (!res.ok) throw new Error(`Minutes translation failed: ${res.status} ${await res.text()}`);
+
+  const data = await res.json();
+  return extractOutputText(data).trim();
+}
+
 async function createMeetingTitle(transcript, options = {}) {
   const { model = "gpt-4o-mini" } = options;
   const apiKey = getApiKey();
@@ -82,7 +129,7 @@ async function createMeetingTitle(transcript, options = {}) {
             {
               type: "input_text",
               text:
-              "IMPORTANT:\n" +
+                "IMPORTANT:\n" +
                 "- Output MUST be ASCII only.\n" +
                 "- Write in Romanian BUT WITHOUT diacritics.\n" +
                 "- Use '-' not en-dash/em-dash.\n" +

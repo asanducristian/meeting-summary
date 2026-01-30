@@ -12,6 +12,7 @@ const {
   transcribeAudio,
   createMeetingMinutes,
   createMeetingTitle,
+  translateMinutesToEnglish,
 } = require("./openaiMinutes");
 
 const app = express();
@@ -281,7 +282,8 @@ async function processAudioFile(filePath, chatId) {
     // console.log("transcriptText: ", transcriptText)
     const meetingTitle = await createMeetingTitle(transcript);
     console.log('meetingtitle: ', meetingTitle);
-    const meetingMinutes = await createMeetingMinutes(transcript);
+    const romaianMeetingMinutes = await createMeetingMinutes(transcript);
+    const meetingMinutes= translateMinutesToEnglish(romaianMeetingMinutes)
 
     console.log("meetingMinutes: ", meetingMinutes)
 
