@@ -154,9 +154,8 @@ function execFileAsync(command, args) {
 }
 
 async function splitAudio(filePath, chunkSeconds) {
-  const ext = path.extname(filePath) || ".audio";
   const tmpDir = await fsp.mkdtemp(path.join(os.tmpdir(), "tg-audio-"));
-  const outputPattern = path.join(tmpDir, `chunk-%03d${ext}`);
+  const outputPattern = path.join(tmpDir, "chunk-%03d.wav");
 
   await execFileAsync("ffmpeg", [
     "-i",
@@ -165,15 +164,19 @@ async function splitAudio(filePath, chunkSeconds) {
     "segment",
     "-segment_time",
     String(chunkSeconds),
-    "-c",
-    "copy",
     "-reset_timestamps",
     "1",
+    "-ar",
+    "16000",
+    "-ac",
+    "1",
+    "-c:a",
+    "pcm_s16le",
     outputPattern,
   ]);
 
   const files = (await fsp.readdir(tmpDir))
-    .filter((name) => name.startsWith("chunk-"))
+    .filter((name) => name.startsWith("chunk-") && name.endsWith(".wav"))
     .sort()
     .map((name) => path.join(tmpDir, name));
 
@@ -187,7 +190,7 @@ async function transcribeWithChunks(filePath) {
   try {
     let transcript = "";
     for (const chunkPath of files) {
-      const chunkText = await transcribeAudio(chunkPath, { language: "en" });
+      const chunkText = await transcribeAudio(chunkPath, { language: "ro" });
       if (chunkText) {
         transcript += (transcript ? "\n\n" : "") + chunkText;
       }
@@ -248,6 +251,20 @@ async function safeUnlink(filePath) {
   }
 }
 
+function toAsciiSafe(s) {
+  if (!s) return "";
+  return String(s)
+    .normalize("NFKD")                 // split accents
+    .replace(/[\u0300-\u036f]/g, "")   // remove diacritic marks
+    .replace(/[“”„”]/g, '"')           // normalize quotes
+    .replace(/[’‘]/g, "'")             // normalize apostrophes
+    .replace(/[–—]/g, "-")             // normalize dashes
+    .replace(/[^\x09\x0A\x0D\x20-\x7E]/g, "") // drop all non-ASCII except tabs/newlines
+    .replace(/[ \t]+\n/g, "\n")        // trim trailing spaces
+    .replace(/\n{3,}/g, "\n\n")        // collapse excessive blank lines
+    .trim();
+}
+
 async function processAudioFile(filePath, chatId) {
   let transcriptPath;
   let minutesPath;
@@ -261,12 +278,11 @@ async function processAudioFile(filePath, chatId) {
       );
       return;
     }
-
+    console.log("transcriptText: ", transcriptText)
     const meetingTitle = await createMeetingTitle(transcript);
     const meetingMinutes = await createMeetingMinutes(transcript);
 
-    console.log("Transcript:", transcript);
-    console.log("Minutes:", meetingMinutes);
+    console.log("meetingMinutes: ", meetingMinutes)
 
     const safeSlug = meetingTitle?.slug || `meeting-${Date.now()}`;
     transcriptPath = path.join(outputsDir, `${safeSlug}-transcript.txt`);
@@ -274,24 +290,10 @@ async function processAudioFile(filePath, chatId) {
 
     await fsp.mkdir(outputsDir, { recursive: true });
     await fsp.writeFile(transcriptPath, transcript, "utf8");
-    await createMinutesPdf(
-      meetingTitle?.title || "Meeting Minutes",
-      meetingMinutes,
-      minutesPath
-    );
+    await createMinutesPdf(meetingTitle?.title || "Minuta ședinței", meetingMinutes, minutesPath);
 
-    await sendTelegramDocument(
-      chatId,
-      transcriptPath,
-      path.basename(transcriptPath),
-      "text/plain"
-    );
-    await sendTelegramDocument(
-      chatId,
-      minutesPath,
-      path.basename(minutesPath),
-      "application/pdf"
-    );
+    await sendTelegramDocument(chatId, transcriptPath, path.basename(transcriptPath), "text/plain");
+    await sendTelegramDocument(chatId, minutesPath, path.basename(minutesPath), "application/pdf");
   } finally {
     await safeUnlink(filePath);
     if (transcriptPath) {

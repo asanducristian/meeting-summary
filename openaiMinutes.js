@@ -32,22 +32,23 @@ function slugifyTitle(title) {
     .replace(/(^-|-$)+/g, "")
     .slice(0, 80);
 }
-
 async function transcribeAudio(filePath, options = {}) {
-  const { model = "whisper-1", language = "en" } = options;
-  const apiKey = getApiKey();
+  const { model = "whisper-1", language } = options; // ← no default
 
+  const apiKey = getApiKey();
   const audioBuffer = await fs.readFile(filePath);
   const filename = path.basename(filePath);
 
   const form = new FormData();
-  form.append("file", new Blob([audioBuffer]), filename);
+  form.append("file", new File([audioBuffer], filename));
   form.append("model", model);
+
+  // ONLY include language if explicitly requested
   if (language) {
     form.append("language", language);
   }
 
-  const res = await fetch(`${OPENAI_BASE_URL}/audio/transcriptions`, {
+  const res = await fetch("https://api.openai.com/v1/audio/transcriptions", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${apiKey}`,
@@ -56,14 +57,12 @@ async function transcribeAudio(filePath, options = {}) {
   });
 
   if (!res.ok) {
-    const errorText = await res.text();
-    throw new Error(`Transcription failed: ${res.status} ${errorText}`);
+    throw new Error(`Transcription failed: ${res.status} ${await res.text()}`);
   }
 
   const data = await res.json();
-  return data.text || "";
+  return data.text ?? "";
 }
-
 async function createMeetingTitle(transcript, options = {}) {
   const { model = "gpt-4o-mini" } = options;
   const apiKey = getApiKey();
@@ -83,36 +82,32 @@ async function createMeetingTitle(transcript, options = {}) {
             {
               type: "input_text",
               text:
-                "Generate a short, descriptive meeting title in English (3-8 words). " +
-                "Return only the title, no quotes or extra text.",
+              "IMPORTANT:\n" +
+                "- Output MUST be ASCII only.\n" +
+                "- Write in Romanian BUT WITHOUT diacritics.\n" +
+                "- Use '-' not en-dash/em-dash.\n" +
+                "- Use only plain quotes: \" \".\n\n" +
+                "Generează un titlu scurt și descriptiv pentru ședință în limba română (3–10 cuvinte). " +
+                "Returnează DOAR titlul, fără ghilimele, fără text suplimentar.",
             },
           ],
         },
         {
           role: "user",
-          content: [
-            {
-              type: "input_text",
-              text: `Transcript:\n${transcript}`,
-            },
-          ],
+          content: [{ type: "input_text", text: `Transcript:\n${transcript}` }],
         },
       ],
     }),
   });
 
-  if (!res.ok) {
-    const errorText = await res.text();
-    throw new Error(`Title generation failed: ${res.status} ${errorText}`);
-  }
+  if (!res.ok) throw new Error(`Title generation failed: ${res.status} ${await res.text()}`);
 
   const data = await res.json();
-  const title = extractOutputText(data).trim() || "Meeting";
-  const slug = slugifyTitle(title) || `meeting-${Date.now()}`;
+  const title = extractOutputText(data).trim() || "Ședință";
+  const slug = slugifyTitle(title) || `sedinta-${Date.now()}`;
 
   return { title, slug };
 }
-
 async function createMeetingMinutes(transcript, options = {}) {
   const { model = "gpt-4o-mini" } = options;
   const apiKey = getApiKey();
@@ -132,34 +127,45 @@ async function createMeetingMinutes(transcript, options = {}) {
             {
               type: "input_text",
               text:
-                "You are a meeting minutes assistant. Produce crisp, accurate minutes " +
-                "in English. Use these sections in order: Summary, Decisions, Action Items, " +
-                "Questions. Keep Summary to 3-5 bullets. Decisions must be explicit; if none, " +
-                "say 'None'. Action Items must be a numbered list with owners if mentioned; " +
-                "if none, say 'None'. Questions list open issues only.",
+                "IMPORTANT:\n" +
+                "- Output MUST be ASCII only.\n" +
+                "- Write in Romanian BUT WITHOUT diacritics.\n" +
+                "- Use '-' not en-dash/em-dash.\n" +
+                "- Use only plain quotes: \" \".\n\n" +
+
+                "Esti un asistent de meeting minutes. Scopul tau este sa extragi CE S-A SPUS, nu sa inventezi.\n" +
+                "Daca ceva nu este clar in transcript, marcheaza ca 'neclar' sau 'de confirmat'.\n" +
+                "Elimina repetitiile, interjectiile si limbajul informal, dar pastreaza detaliile operationale.\n\n" +
+
+                "Foloseste STRICT aceasta structura:\n" +
+                "## Minuta sedintei\n" +
+                "### Context\n" +
+                "- 1-2 propozitii: despre ce este sedinta.\n" +
+                "### Rezumat (3-6 puncte)\n" +
+                "- bullets, fiecare cu informatie concreta.\n" +
+                "### Flow descris (pas cu pas)\n" +
+                "- listeaza pasii operationali exact in ordinea mentionata.\n" +
+                "### Decizii\n" +
+                "- daca nu exista, scrie: \"Nu s-au consemnat decizii.\"\n" +
+                "### Actiuni / Next steps\n" +
+                "- lista numerotata. Daca nu exista, scrie: \"Nu s-au consemnat actiuni.\"\n" +
+                "### Intrebari deschise\n" +
+                "- lista. Daca nu exista, scrie: \"Nu s-au consemnat intrebari.\"\n"
             },
           ],
         },
         {
           role: "user",
-          content: [
-            {
-              type: "input_text",
-              text: `Transcript:\n${transcript}`,
-            },
-          ],
+          content: [{ type: "input_text", text: `Transcript:\n${transcript}` }],
         },
       ],
     }),
   });
 
-  if (!res.ok) {
-    const errorText = await res.text();
-    throw new Error(`Minutes generation failed: ${res.status} ${errorText}`);
-  }
+  if (!res.ok) throw new Error(`Minutes generation failed: ${res.status} ${await res.text()}`);
 
   const data = await res.json();
-  return extractOutputText(data);
+  return extractOutputText(data).trim();
 }
 
 async function transcribeAndSummarize(filePath, options = {}) {
